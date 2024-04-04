@@ -24,10 +24,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     entity_filter = None
     data_conf = entry.data
     options_conf = entry.options
-
-    # _LOGGER.debug(f'entry conf:{entry.as_dict()}')
-    # _LOGGER.debug(f'entry data:{entry.data}')
-    # _LOGGER.debug(f'entry options:{entry.options}')
     if not options_conf:
         entity_filter = data_conf.get(CONF_FILTER, {})
     else:
@@ -52,13 +48,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if data is not None:
         data["service"].stop()
         hass.data[DOMAIN].pop(entry.entry_id)
-
     return True
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Remove a config entry."""
-    # await hass.async_add_executor_job(
-    #     remove_state_files_for_entry_id, hass, entry.entry_id
-    # )
-    _LOGGER.debug('remove entry invoke')
+    pass

@@ -166,6 +166,7 @@ class DuerConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="user",
             data_schema=vol.Schema(
                 {
+                    
                     vol.Required(CONF_TOKEN): str,
                     vol.Required(
                         CONF_INCLUDE_DOMAINS, default=default_domains
