@@ -1,0 +1,17 @@
+{
+  "domain": "duermqtt",
+  "name": "DuerMqtt",
+  "codeowners": [
+    "@Jack_Zhou"
+  ],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "",
+  "homekit": {},
+  "iot_class": "cloud_push",
+  "issue_tracker": "",
+  "requirements": [],
+  "ssdp": [],
+  "version": "1.0.1",
+  "zeroconf": []
+}
