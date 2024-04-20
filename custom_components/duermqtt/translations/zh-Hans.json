@@ -9,7 +9,7 @@
         "step": {
             "user": {
                 "data": {
-                    "token": "UserToken:新用户请到https://smarthome.haplugin.com/注册"
+                    "token": "User Token"
                 },
                 "title": "添加小度转接平台账号"
             }

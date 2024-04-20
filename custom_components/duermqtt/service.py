@@ -18,21 +18,27 @@ from . const import CONST_POST_SYNC_DEVICE_URL, CONST_POST_SYNC_STATE_URL, CONST
 _LOGGER = logging.getLogger(__name__)
 
 
-class DuerMQTTService:
+class DuerService:
     """Service handles mqtt topocs and connection."""
 
     def __init__(self, hass: HomeAssistant, token: str) -> None:
         """Initialize."""
         self.hass = hass
         self._token = token
-        self._mqtt_service = DuerMqttService(hass)
+        self._duer_mqtt_service = DuerMqttService(hass)
+        self.mqtt_online_cb: callable[None,
+                                      bool] = None
+        self.mqtt_online = False
         self._start = False
-        self._mqtt_service.on_mqtt_message_cb.append(self._on_mqtt_message)
+        self._duer_mqtt_service.on_mqtt_message_cb.append(
+            self._on_mqtt_message)
+        self._duer_mqtt_service.on_connect_cb = self._on_mqtt_connect
         self._mqtt_url: str = None
         self._web_url: str = None
         self._port: str = None
         self._user: str = None
         self._pwd: str = None
+        self._version_check = False
         self._entity_list = []
         self._session = async_create_clientsession(self.hass, False, True)
         self._state_change_unsub = None
@@ -44,7 +50,7 @@ class DuerMQTTService:
         self._entity_list = entity_list
         _LOGGER.debug('duer mqtt service start')
         _LOGGER.debug(f'token:{self._token}')
-        self._mqtt_service.entity_list = entity_list
+        self._duer_mqtt_service.entity_list = entity_list
         try:
             conn_dic = json.loads(
                 base64.b64decode(self._token).decode())
@@ -55,7 +61,7 @@ class DuerMQTTService:
             self._pwd = conn_dic.get('password')
         except Exception as ex:
             _LOGGER.error(f'token decode error: {ex}')
-        check_state = await self._check_plugin_version()
+        self._version_check = await self._check_plugin_version()
 
         async def _entity_state_change_processor(event: Event[EventStateChangedData]) -> None:
             new_state: State = event.data.get("new_state")
@@ -69,11 +75,11 @@ class DuerMQTTService:
 
         def _start(event: Event | None = None):
             try:
-                if check_state:
+                if self._version_check:
                     # _LOGGER.debug(f'url:{self._url} / {self._port}')
                     # _LOGGER.debug(f'user:{self._user}')
                     # _LOGGER.debug(f'pwd:{self._pwd}')
-                    self.hass.add_job(self._mqtt_service.connect(
+                    self.hass.add_job(self._duer_mqtt_service.connect(
                         self._mqtt_url, self._port, self._user, self._pwd))
                     self._state_change_unsub = async_track_state_change_event(
                         self.hass, entity_list, _entity_state_change_processor)
@@ -89,7 +95,7 @@ class DuerMQTTService:
                 EVENT_HOMEASSISTANT_STARTED, _start)
 
     def stop(self) -> None:
-        self._mqtt_service.disconnect()
+        self._duer_mqtt_service.disconnect()
 
     async def _get_data(self, session: ClientSession, url: str):
         try:
@@ -181,6 +187,11 @@ class DuerMQTTService:
                 }
                 await self._post_data(self._session, f'{self._web_url}{CONST_POST_SYNC_STATE_URL}', post_device_data)
             await asyncio.sleep(0.01)
+
+    def _on_mqtt_connect(self, state):
+        self.mqtt_online = state
+        if callable(self.mqtt_online_cb):
+            self.mqtt_online_cb(state)
 
     def _on_mqtt_message(self, data: dict):
         _LOGGER.debug(f'get mqtt message:{data}')

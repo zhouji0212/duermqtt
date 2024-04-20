@@ -7,19 +7,15 @@ from typing import Any, TypedDict
 
 import voluptuous as vol
 
-from homeassistant.components import device_automation
 from homeassistant.config_entries import (
-    SOURCE_IMPORT,
     ConfigEntry,
     ConfigFlow,
     OptionsFlow,
 )
 from homeassistant.const import (
     ATTR_FRIENDLY_NAME,
-    CONF_DEVICES,
     CONF_DOMAINS,
     CONF_ENTITIES,
-    CONF_ENTITY_ID,
     CONF_NAME,
     CONF_TOKEN
 )
@@ -52,6 +48,7 @@ INCLUDE_EXCLUDE_MODES = [MODE_INCLUDE,]
 SUPPORTED_DOMAINS = [
     "button",
     "climate",
+    "fan",
     "cover",
     "input_button",
     "light",
@@ -61,14 +58,6 @@ SUPPORTED_DOMAINS = [
 ]
 
 DEFAULT_DOMAINS = [
-    "climate",
-    "scene",
-    "button",
-    "input_button",
-    "cover",
-    "light",
-    "switch",
-    "water_heater",
 ]
 
 
@@ -145,7 +134,7 @@ class DuerConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             self.duer_data[CONF_TOKEN] = user_input[CONF_TOKEN]
             self.duer_data[CONF_FILTER] = _make_entity_filter(
-                include_domains=user_input[CONF_INCLUDE_DOMAINS]
+                include_domains=[]
             )
             self.duer_data[CONF_FILTER][CONF_INCLUDE_ENTITIES] = [state.entity_id
                                                                   for state in self.hass.states.async_all(self.duer_data[CONF_FILTER][CONF_INCLUDE_DOMAINS])
@@ -156,21 +145,18 @@ class DuerConfigFlow(ConfigFlow, domain=DOMAIN):
             )
 
         self.duer_data[CONF_NAME] = 'Dure_MQTT'
-        default_domains = (
-            [] if self._async_current_entries(
-                include_ignore=False) else DEFAULT_DOMAINS
-        )
-        name_to_type_map = await _async_name_to_type_map(self.hass)
+        # default_domains = (
+        #     [] if self._async_current_entries(
+        #         include_ignore=False) else DEFAULT_DOMAINS
+        # )
+        # name_to_type_map = await _async_name_to_type_map(self.hass)
 
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(
                 {
-                    
                     vol.Required(CONF_TOKEN): str,
-                    vol.Required(
-                        CONF_INCLUDE_DOMAINS, default=default_domains
-                    ): cv.multi_select(name_to_type_map),
+                    vol.Optional('info', default="未注册过用户的,请到https://smarthome.haplugin.com注册用户,然后获取token"): str
                 }
             ),
         )
@@ -200,7 +186,7 @@ class OptionsFlowHandler(OptionsFlow):
         # _LOGGER_.debug(f'opt:{duer_options}')
         domains = duer_options[CONF_DOMAINS]
         if user_input is not None:
-            VERSION = self.config_entry.version+1
+            # VERSION = self.config_entry.version+1
             entities = cv.ensure_list(user_input[CONF_ENTITIES])
             duer_options[CONF_FILTER] = _async_build_entities_filter(
                 domains, entities)

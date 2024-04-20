@@ -31,48 +31,6 @@
             "modify_sync": {
                 "title": "Modify a sync",
                 "description": "Select a sync to edit."
-            },
-            "sync_config_climate": {
-                "title": "Configuation",
-                "description": "Configuate a hass-to-bemfa climate sync.",
-                "data": {
-                    "name": "Name",
-                    "fan_speed_0_value": "Fan speed auto",
-                    "fan_speed_1_value": "Fan speed 1",
-                    "fan_speed_2_value": "Fan speed 2",
-                    "fan_speed_3_value": "Fan speed 3",
-                    "fan_speed_4_value": "Fan speed 4",
-                    "fan_speed_5_value": "Fan speed 5",
-                    "swing_off_value": "Swing off",
-                    "swing_horizontal_value": "Swing horizontal",
-                    "swing_vertical_value": "Swing vertical",
-                    "swing_both_value": "Swing both"
-                }
-            },
-            "sync_config_cover": {
-                "title": "Configuation",
-                "description": "Configuate cover sync.",
-                "data": {
-                    "name": "Name"
-                }
-            },
-            "sync_config_light": {
-                "title": "Configuation",
-                "description": "Configuate light sync.",
-                "data": {
-                    "name": "Name"
-                }
-            },
-            "sync_config_switch": {
-                "title": "Configuation",
-                "description": "Configuate switch sync.",
-                "data": {
-                    "name": "Name"
-                }
-            },
-            "empty": {
-                "title": "Empty",
-                "description": "No syncs found."
             }
         }
     }

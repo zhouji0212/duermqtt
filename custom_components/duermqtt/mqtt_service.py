@@ -35,6 +35,7 @@ class DuerMqttService:
         self._conn_dic = None
         self.entity_list = []
         self.on_mqtt_message_cb = []
+        self.on_connect_cb: callable[None, bool] = None
 
     async def connect(self, url, port, user, pwd) -> None:
         try:
@@ -74,7 +75,8 @@ class DuerMqttService:
                             json.dumps(publish_data),
                         ))
         _LOGGER.debug(f"Connected to MQTT broker! {rc}")
-
+        if callable(self.on_connect_cb):
+            self.on_connect_cb(True)
         # self._state_unsub = async_track_state_change_event(
         #     self.hass, self.entity_list, _entity_state_change_processor)
         self.hass.add_job(self._amqtt.subscribe(
@@ -82,6 +84,8 @@ class DuerMqttService:
 
     def _mqtt_on_disconnect(self, client, packet, exc=None) -> None:
         _LOGGER.error(f'mqtt client Disconnected')
+        if callable(self.on_connect_cb):
+            self.on_connect_cb(False)
         # self._online_state = False
 
     def _mqtt_on_message(self, client: Client, message: MQTTMessage) -> None:
