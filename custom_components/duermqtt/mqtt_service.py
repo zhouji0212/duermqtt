@@ -80,7 +80,7 @@ class DuerMqttService:
         # self._state_unsub = async_track_state_change_event(
         #     self.hass, self.entity_list, _entity_state_change_processor)
         self.hass.add_job(self._amqtt.subscribe(
-            f'{TOPIC_COMMAND}{self._user}', 2))
+            f'{TOPIC_COMMAND}{self._user}', 0))
 
     def _mqtt_on_disconnect(self, client, packet, exc=None) -> None:
         _LOGGER.error(f'mqtt client Disconnected')

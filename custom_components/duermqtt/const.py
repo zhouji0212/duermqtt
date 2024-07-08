@@ -5,7 +5,7 @@ from typing import Final
 from homeassistant.backports.enum import StrEnum
 
 DOMAIN: Final = "duermqtt"
-CONST_VERSION: Final = '2024.4.1'
+CONST_VERSION: Final = '2024.07.081'
 
 # #### Config ####
 CONF_TOKEN: Final = "uid"
