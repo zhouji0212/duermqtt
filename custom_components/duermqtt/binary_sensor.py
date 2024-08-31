@@ -1,5 +1,5 @@
 import logging
-from homeassistant.core import HomeAssistant, Event
+from homeassistant.core import HomeAssistant
 from homeassistant.components.binary_sensor import BinarySensorEntity, BinarySensorDeviceClass
 from . import DOMAIN, ConfigEntry
 from .service import DuerService
@@ -13,6 +13,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
         service: DuerService = domain.get(
             config_entry.entry_id)["service"]
         if isinstance(service, DuerService):
+
             async_add_entities([MqttOnlineSensor(service),])
 
 

@@ -2,10 +2,8 @@
 
 from typing import Final
 
-from homeassistant.backports.enum import StrEnum
-
 DOMAIN: Final = "duermqtt"
-CONST_VERSION: Final = '2024.7.8'
+CONST_VERSION: Final = '2024.4.1'
 
 # #### Config ####
 CONF_TOKEN: Final = "uid"
@@ -40,7 +38,7 @@ MQTT_PORT: Final = 1883
 MQTT_KEEPALIVE: Final = 600
 TOPIC_PREFIX = 'test'
 TOPIC_PING = "topic_ping"
-TOPIC_REPORT: Final = "ha2xiaodu/command/{topic}"
+TOPIC_COMMAND: Final = "ha2xiaodu/command/{topic}"
 TOPIC_REPORT: Final = "ha2xiaodu/report/{topic}"
 INTERVAL_PING_SEND = 30  # send ping msg every 30s
 INTERVAL_PING_RECEIVE = 20  # detect a ping lost in 20s after a ping message send

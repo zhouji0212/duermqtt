@@ -6,6 +6,7 @@ from homeassistant.const import CONF_TOKEN, Platform
 from .const import DOMAIN, CONF_FILTER, CONF_INCLUDE_ENTITIES
 from .service import DuerService
 _LOGGER = logging.getLogger(__name__)
+CONST_PLATFORMS = [Platform.BINARY_SENSOR,]
 
 
 async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
@@ -43,10 +44,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await service.async_start(
         enttities
     )
-    hass.async_create_task(
-        hass.config_entries.async_forward_entry_setup(
-            entry, Platform.BINARY_SENSOR)
-    )
+    # for platform in CONST_PLATFORMS:
+    #     hass.async_create_task(
+    await hass.config_entries.async_forward_entry_setups(
+        entry, CONST_PLATFORMS)
+    # )
     return True
 
 
@@ -56,7 +58,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unload_ok = False
     if data is not None:
         data["service"].stop()
-        unload_ok = await hass.config_entries.async_unload_platforms(entry, [Platform.BINARY_SENSOR,])
+        unload_ok = await hass.config_entries.async_unload_platforms(entry, CONST_PLATFORMS)
         if unload_ok:
             hass.data[DOMAIN].pop(entry.entry_id)
     return unload_ok

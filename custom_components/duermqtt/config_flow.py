@@ -34,8 +34,19 @@ from .const import (
     CONF_INCLUDE_ENTITIES,
 )
 _LOGGER = logging.getLogger(__name__)
+CONF_ACTION = "action"
+CONF_EDIT_DEVICE = "edit_device"
+CONF_CHANGE_TOKEN = "change_token"
+CONF_ACTIONS = {
+    CONF_EDIT_DEVICE: "Edit a HA device",
+    CONF_CHANGE_TOKEN: "Change Duer Platform Token",
+}
 
-
+CONFIGURE_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_ACTION, default=CONF_EDIT_DEVICE): vol.In(CONF_ACTIONS),
+    }
+)
 CONF_INCLUDE_EXCLUDE_MODE = "include_exclude_mode"
 CONF_EXCLUDE_ACCESSORY_MODE = "exclude_accessory_mode"
 
@@ -57,8 +68,7 @@ SUPPORTED_DOMAINS = [
     "water_heater",
 ]
 
-DEFAULT_DOMAINS = [
-]
+DEFAULT_DOMAINS = ['light', 'switch', 'cover', 'scene', 'climate']
 
 
 class EntityFilterDict(TypedDict, total=False):
@@ -127,6 +137,47 @@ class DuerConfigFlow(ConfigFlow, domain=DOMAIN):
         """Initialize config flow."""
         self.duer_data: dict[str, Any] = {}
 
+    async def async_step_include_device(
+        self, user_input: dict[str, Any] | None = None
+    ):
+        """Choose entities to include from the domain on the bridge."""
+        duer_data = self.duer_data
+        # _LOGGER_.debug(f'opt:{duer_options}')
+        domains = duer_data[CONF_DOMAINS]
+        if user_input is not None:
+            # VERSION = self.config_entry.version+1
+            entities = cv.ensure_list(user_input[CONF_ENTITIES])
+            duer_data[CONF_FILTER] = _async_build_entities_filter(
+                domains, entities)
+            duer_data.update(user_input)
+            # _LOGGER.debug(f'options entry: {self.duer_options}')
+
+            return self.async_create_entry(title="", data=self.duer_data)
+
+        entity_filter: EntityFilterDict = duer_data.get(CONF_FILTER, {})
+        entities = entity_filter.get(CONF_INCLUDE_ENTITIES, [])
+        all_supported_entities = _async_get_matching_entities(
+            self.hass, domains, include_entity_category=True, include_hidden=True
+        )
+        # Strip out entities that no longer exist to prevent error in the UI
+        default_value = [
+            entity_id for entity_id in entities if entity_id in all_supported_entities
+        ]
+        # _LOGGER.debug(f'include_list: {default_value}')
+        return self.async_show_form(
+            step_id="include_device",
+            description_placeholders={
+                "domains": await _async_domain_names(self.hass, domains)
+            },
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(CONF_ENTITIES, default=default_value): cv.multi_select(
+                        all_supported_entities
+                    )
+                }
+            ),
+        )
+
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ):
@@ -139,16 +190,9 @@ class DuerConfigFlow(ConfigFlow, domain=DOMAIN):
             self.duer_data[CONF_FILTER][CONF_INCLUDE_ENTITIES] = [state.entity_id
                                                                   for state in self.hass.states.async_all(self.duer_data[CONF_FILTER][CONF_INCLUDE_DOMAINS])
                                                                   ]
-            return self.async_create_entry(
-                title=f"{self.duer_data[CONF_NAME]}",
-                data=self.duer_data,
-            )
+            return await self.async_step_select_domain()
 
-        self.duer_data[CONF_NAME] = 'Dure_MQTT'
-        # default_domains = (
-        #     [] if self._async_current_entries(
-        #         include_ignore=False) else DEFAULT_DOMAINS
-        # )
+        self.duer_data[CONF_NAME] = 'Duer_MQTT'
         # name_to_type_map = await _async_name_to_type_map(self.hass)
 
         return self.async_show_form(
@@ -156,7 +200,30 @@ class DuerConfigFlow(ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema(
                 {
                     vol.Required(CONF_TOKEN): str,
-                    vol.Optional('info', default="未注册过用户的,请到https://smarthome.haplugin.com注册用户,然后获取token"): str
+                }
+            ),
+        )
+
+    async def async_step_select_domain(
+        self, user_input: dict[str, Any] | None = None
+    ):
+        if user_input is not None:
+            self.duer_data.update(user_input)
+            return await self.async_step_include_device()
+        include_exclude_mode = MODE_INCLUDE
+        domains = DEFAULT_DOMAINS
+        name_to_type_map = await _async_name_to_type_map(self.hass)
+        return self.async_show_form(
+            step_id="select_domain",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_INCLUDE_EXCLUDE_MODE, default=include_exclude_mode
+                    ): vol.In(INCLUDE_EXCLUDE_MODES),
+                    vol.Required(
+                        CONF_DOMAINS,
+                        default=domains,
+                    ): cv.multi_select(name_to_type_map),
                 }
             ),
         )
@@ -176,9 +243,14 @@ class OptionsFlowHandler(OptionsFlow):
     def __init__(self, config_entry: ConfigEntry) -> None:
         """Initialize options flow."""
         self.config_entry = config_entry
-        self.duer_options: dict[str, Any] = {}
+        _LOGGER.debug(f'config_entry data:{config_entry.data}')
+        # self.duer_options: dict[str, Any] = {}
+        if not self.config_entry.options:
+            self.duer_options = deepcopy(dict(self.config_entry.data))
+        else:
+            self.duer_options = deepcopy(dict(self.config_entry.options))
 
-    async def async_step_include(
+    async def async_step_include_device(
         self, user_input: dict[str, Any] | None = None
     ):
         """Choose entities to include from the domain on the bridge."""
@@ -206,7 +278,7 @@ class OptionsFlowHandler(OptionsFlow):
         ]
         # _LOGGER.debug(f'include_list: {default_value}')
         return self.async_show_form(
-            step_id="include",
+            step_id="include_device",
             description_placeholders={
                 "domains": await _async_domain_names(self.hass, domains)
             },
@@ -219,27 +291,39 @@ class OptionsFlowHandler(OptionsFlow):
             ),
         )
 
-    async def async_step_init(
+    async def async_step_change_token(self, user_input=None):
+        """Handle the initial step."""
+        if user_input is not None:
+            self.duer_options.update(user_input)
+            # _LOGGER.debug(f'options entry: {self.duer_options}')
+
+            return self.async_create_entry(title="", data=self.duer_options)
+        return self.async_show_form(
+            step_id="change_token",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_TOKEN): str,
+                }
+            ),
+        )
+
+    async def async_step_edit_domain(
         self, user_input: dict[str, Any] | None = None
     ):
         """Handle options flow."""
         if user_input is not None:
             self.duer_options.update(user_input)
-            return await self.async_step_include()
-        if not self.config_entry.options:
-            self.duer_options = deepcopy(dict(self.config_entry.data))
-        else:
-            self.duer_options = deepcopy(dict(self.config_entry.options))
+            return await self.async_step_include_device()
         entity_filter: EntityFilterDict = self.duer_options.get(
             CONF_FILTER, {})
         include_exclude_mode = MODE_INCLUDE
         if include_entities := entity_filter.get(CONF_INCLUDE_ENTITIES):
             domains = _domains_set_from_entities(include_entities)
         else:
-            domains = entity_filter.get(CONF_INCLUDE_DOMAINS, [])
+            domains = entity_filter.get(CONF_INCLUDE_DOMAINS, DEFAULT_DOMAINS)
         name_to_type_map = await _async_name_to_type_map(self.hass)
         return self.async_show_form(
-            step_id="init",
+            step_id="edit_domain",
             data_schema=vol.Schema(
                 {
                     vol.Required(
@@ -251,6 +335,19 @@ class OptionsFlowHandler(OptionsFlow):
                     ): cv.multi_select(name_to_type_map),
                 }
             ),
+        )
+
+    async def async_step_init(self, user_input=None):
+        """Manage basic options."""
+        if user_input is not None:
+            if user_input.get(CONF_ACTION) == CONF_CHANGE_TOKEN:
+                return await self.async_step_change_token()
+            if user_input.get(CONF_ACTION) == CONF_EDIT_DEVICE:
+                return await self.async_step_edit_domain()
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=CONFIGURE_SCHEMA,
         )
 
 

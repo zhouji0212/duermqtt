@@ -6,8 +6,8 @@ import asyncio
 from datetime import datetime
 from asyncio import Task, Lock, Queue
 from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
-from homeassistant.core import CoreState, Event, HomeAssistant, State
-from homeassistant.helpers.event import async_track_state_change_event, EventStateChangedData
+from homeassistant.core import CoreState, Event, HomeAssistant, State, callback
+from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.aiohttp_client import async_create_clientsession
 import base64
 import json
@@ -16,6 +16,9 @@ from .mqtt_service import DuerMqttService
 from . import DOMAIN
 from . const import CONST_POST_SYNC_DEVICE_URL, CONST_POST_SYNC_STATE_URL, CONST_GET_VERSION_CHECK_URL, CONST_VERSION
 _LOGGER = logging.getLogger(__name__)
+TOPIC_COMMAND = 'ha2xiaodu/command/'
+TOPIC_REPORT = 'ha2xiaodu/report/'
+TOPIC_PING = 'topic_ping'
 
 
 class DuerService:
@@ -30,9 +33,10 @@ class DuerService:
                                       bool] = None
         self.mqtt_online = False
         self._start = False
-        self._duer_mqtt_service.on_mqtt_message_cb.append(
+        self._duer_mqtt_service.on_message_cb_list.append(
             self._on_mqtt_message)
-        self._duer_mqtt_service.on_connect_cb = self._on_mqtt_connect
+        self._duer_mqtt_service.on_connect_cb_list.append(
+            self._on_mqtt_connect)
         self._mqtt_url: str = None
         self._web_url: str = None
         self._port: str = None
@@ -45,6 +49,21 @@ class DuerService:
         self._sync_state_queue: Queue = Queue(3000)
         self._sync_state_task: Task = None
         self._sync_state_lock = Lock()
+
+    def _sub_state_change(self):
+        @callback
+        async def _entity_state_change_processor(event) -> None:
+            new_state: State = event.data.get("new_state")
+            if new_state is None:
+                return
+            try:
+                _LOGGER.debug(f"entity state change: {new_state}")
+                self._sync_state_queue.put_nowait(new_state)
+            except Exception as ex:
+                _LOGGER.error(f'sync state queue full: {ex}')
+        self._state_change_unsub = async_track_state_change_event(
+            self.hass, self._entity_list, _entity_state_change_processor)
+        _LOGGER.debug('state change sub success')
 
     async def async_start(self, entity_list: list) -> None:
         self._entity_list = entity_list
@@ -63,28 +82,14 @@ class DuerService:
             _LOGGER.error(f'token decode error: {ex}')
         self._version_check = await self._check_plugin_version()
 
-        async def _entity_state_change_processor(event: Event[EventStateChangedData]) -> None:
-            new_state: State = event.data.get("new_state")
-            if new_state is None:
-                return
-            # _LOGGER.debug(f"entity state change: {new_state}")
-            try:
-                self._sync_state_queue.put_nowait(new_state)
-            except Exception as ex:
-                _LOGGER.error(f'sync state queue full: {ex}')
-
         def _start(event: Event | None = None):
             try:
                 if self._version_check:
-                    # _LOGGER.debug(f'url:{self._url} / {self._port}')
-                    # _LOGGER.debug(f'user:{self._user}')
-                    # _LOGGER.debug(f'pwd:{self._pwd}')
-                    self.hass.add_job(self._duer_mqtt_service.connect(
+                    _LOGGER.debug('check version ok start post data')
+                    self.hass.create_task(self._duer_mqtt_service.connect(
                         self._mqtt_url, self._port, self._user, self._pwd))
-                    self._state_change_unsub = async_track_state_change_event(
-                        self.hass, entity_list, _entity_state_change_processor)
-                    self._sync_state_task = self.hass.async_create_background_task(
-                        self._sync_entities_state_loop(), f'{self._user}_sync_state_entities')
+                    self._sync_device_entities(self._entity_list)
+                    self._sub_state_change()
                     self._start = True
             except Exception as ex:
                 _LOGGER.error(f'start mqtt service err:{ex}')
@@ -93,9 +98,12 @@ class DuerService:
         else:
             self.hass.bus.async_listen_once(
                 EVENT_HOMEASSISTANT_STARTED, _start)
+        await asyncio.sleep(3)
+        self._sync_state_task = self.hass.async_create_background_task(
+            self._sync_entities_state_loop(), f'{self._user}_sync_state_entities')
 
     def stop(self) -> None:
-        self._duer_mqtt_service.disconnect()
+        self._duer_mqtt_service.stop()
 
     async def _get_data(self, session: ClientSession, url: str):
         try:
@@ -108,12 +116,16 @@ class DuerService:
         except Exception as ex:
             _LOGGER.error(f'get data err:{ex}')
 
-    async def _post_data(self, session: ClientSession, url: str, data: dict):
+    async def _post_data(self, url: str, data: dict):
         try:
+            if isinstance(self._session, ClientSession):
+                if self._session.closed:
+                    self._session = async_create_clientsession(
+                        self.hass, False, True)
             post_headers = {'Content-Type': 'application/json'}
             j_data = json.dumps(data)
             _LOGGER.debug(f"post json:{j_data}")
-            res: ClientResponse = await session.post(
+            res: ClientResponse = await self._session.post(
                 url, data=j_data, headers=post_headers)
             res.raise_for_status()
             dic_res: dict = await res.json()
@@ -157,39 +169,48 @@ class DuerService:
                 'secret': self._pwd
             }
             self.hass.add_job(
-                self._post_data(self._session, f'{self._web_url}{CONST_POST_SYNC_DEVICE_URL}', post_device_data))
+                self._post_data(f'{self._web_url}{CONST_POST_SYNC_DEVICE_URL}', post_device_data))
             _LOGGER.debug('sync entities finish')
 
+    @callback
     async def _sync_entities_state_loop(self):
-        await asyncio.sleep(10)
-        _LOGGER.debug('start sync entities')
-        for entity in self._entity_list:
-            e_state: State = self.hass.states.get(entity)
-            if isinstance(e_state, State):
-                post_device_data = {
-                    'type': 'state_changed',
-                    'data': e_state.as_dict(),
-                    'openid': self._user,
-                    'secret': self._pwd
-                }
-                await self._post_data(self._session, f'{self._web_url}{CONST_POST_SYNC_STATE_URL}', post_device_data)
-                await asyncio.sleep(0.01)
-        _LOGGER.debug('finish sync entities start sync queue loop')
+        # await asyncio.sleep(10)
+        # _LOGGER.debug('start sync entities')
+        # for entity in self._entity_list:
+        #     e_state: State = self.hass.states.get(entity)
+        #     if isinstance(e_state, State):
+        #         post_device_data = {
+        #             'type': 'state_changed',
+        #             'data': e_state.as_dict(),
+        #             'openid': self._user,
+        #             'secret': self._pwd
+        #         }
+        #         await self._post_data(self._session, f'{self._web_url}{CONST_POST_SYNC_STATE_URL}', post_device_data)
+        #         await asyncio.sleep(0.01)
+        _LOGGER.debug('start sync state queue loop')
+        # self._sync_state_queue = asyncio.Queue(3000)
         while True:
-            state: State = await self._sync_state_queue.get()
-            self._sync_state_queue.task_done()
-            if isinstance(state, State):
-                post_device_data = {
-                    'type': 'state_changed',
-                    'data': state.as_dict(),
-                    'openid': self._user,
-                    'secret': self._pwd
-                }
-                await self._post_data(self._session, f'{self._web_url}{CONST_POST_SYNC_STATE_URL}', post_device_data)
+            try:
+                if isinstance(self._sync_state_queue, asyncio.Queue):
+                    state: State = await self._sync_state_queue.get()
+                    self._sync_state_queue.task_done()
+                    _LOGGER.debug('post_change data')
+                    if isinstance(state, State):
+                        post_device_data = {
+                            'type': 'state_changed',
+                            'data': state.as_dict(),
+                            'openid': self._user,
+                            'secret': self._pwd
+                        }
+                        await self._post_data(f'{self._web_url}{CONST_POST_SYNC_STATE_URL}', post_device_data)
+            except Exception as ex:
+                _LOGGER.error(f'get queue error {ex}')
             await asyncio.sleep(0.01)
 
     def _on_mqtt_connect(self, state):
         self.mqtt_online = state
+        self._duer_mqtt_service.subscribe(
+            f'{TOPIC_COMMAND}{self._user}', 0)
         if callable(self.mqtt_online_cb):
             self.mqtt_online_cb(state)
 

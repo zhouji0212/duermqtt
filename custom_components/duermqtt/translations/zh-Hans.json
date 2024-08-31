@@ -1,78 +1,52 @@
 {
     "config": {
         "abort": {
-            "already_configured": "This Token has been already configured"
+            "already_configured": "平台密钥已经配置"
         },
         "error": {
-            "invalid_uid": "Invalid Token"
+            "invalid_uid": "平台密钥错误"
         },
         "step": {
             "user": {
+                "title": "添加平台密钥",
+                "description": "请粘贴平台密钥,获取平台密钥,请访问 https://smarthome.haplugin.com",
                 "data": {
-                    "token": "User Token"
-                },
-                "title": "添加小度转接平台账号"
+                    "token": "平台密钥"
+                }
+            },
+            "include_device": {
+                "title": "包含设备明细",
+                "description": "选择需要推送的HA子设备"
+            },
+            "select_domain": {
+                "title": "HA设备域",
+                "description": "选择需要包含的HA设备域"
             }
-        }
-    },
-    "options": {
-        "step": {
-            "init": {
-                "title": "Operations",
-                "menu_options": {
-                    "create_sync": "Create sync",
-                    "modify_sync": "Modify sync"
+        },
+        "options": {
+            "step": {
+                "init": {
+                    "title": "请选择操作"
+                },
+                "change_token": {
+                    "title": "变更平台密钥",
+                    "description": "请粘帖新的平台密钥",
+                    "data": {
+                        "token": "平台密钥"
+                    }
+                },
+                "include_device": {
+                    "title": "设备明细",
+                    "description": "选择需要推送的HA子设备"
+                },
+                "edit_domain": {
+                    "title": "HA设备域",
+                    "description": "选择需要包含的HA设备域"
+                },
+                "empty": {
+                    "title": "Empty",
+                    "description": "No syncs found."
                 }
-            },
-            "create_sync": {
-                "title": "Create sync",
-                "description": "Select an entity to create sync."
-            },
-            "modify_sync": {
-                "title": "Modify a sync",
-                "description": "Select a sync to edit."
-            },
-            "sync_config_climate": {
-                "title": "Configuation",
-                "description": "Configuate climate sync.",
-                "data": {
-                    "name": "Name",
-                    "fan_speed_0_value": "Fan speed auto",
-                    "fan_speed_1_value": "Fan speed 1",
-                    "fan_speed_2_value": "Fan speed 2",
-                    "fan_speed_3_value": "Fan speed 3",
-                    "fan_speed_4_value": "Fan speed 4",
-                    "fan_speed_5_value": "Fan speed 5",
-                    "swing_off_value": "Swing off",
-                    "swing_horizontal_value": "Swing horizontal",
-                    "swing_vertical_value": "Swing vertical",
-                    "swing_both_value": "Swing both"
-                }
-            },
-            "sync_config_cover": {
-                "title": "Configuation",
-                "description": "Configuate cover sync.",
-                "data": {
-                    "name": "Name"
-                }
-            },
-            "sync_config_light": {
-                "title": "Configuation",
-                "description": "Configuate light sync.",
-                "data": {
-                    "name": "Name"
-                }
-            },
-            "sync_config_switch": {
-                "title": "Configuation",
-                "description": "Configuate switch sync.",
-                "data": {
-                    "name": "Name"
-                }
-            },
-            "empty": {
-                "title": "Empty",
-                "description": "No syncs found."
             }
         }
     }
