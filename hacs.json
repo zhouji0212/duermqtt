@@ -1,5 +1,5 @@
 {
     "name": "duermqtt",
     "render_readme": true,
-    "homeassistant": "2023.8.3"
+    "homeassistant": "2024.8.0"
 }
