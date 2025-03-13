@@ -269,9 +269,10 @@ class DuerMqttService:
         self.reconnect_interval = reconnect_interval
         self.keep_alive = keep_alive
         self._stop_mqtt = False
-        self.client_id = user or mqtt.base62(uuid.uuid4().int, padding=22)
-        self._client = AsyncMQTTClient(
-            self.client_id, protocol=MQTTv311, reconnect_on_failure=False)
+        self.client_id = f'{user}{str(uuid.uuid4())}'
+        self._client = AsyncMQTTClient(client_id=self.client_id,
+                                       protocol=MQTTv311,
+                                       reconnect_on_failure=False)
         self._client.setup()
         self._client.enable_logger()
         if self.tls:

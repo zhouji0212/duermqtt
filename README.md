@@ -4,5 +4,8 @@
 ## 作者：jack_zhou
 ## version: 1.0.1
 ## 更新插件MQTT底层，支持HA 2024.8以后，改进MQTT掉线稳定性
+## version: 1.0.4
+## HACS更新到2024.9以后
+## 更新MQTT的Client ID，支行HA 2025.3版本
 ## 插件注册：https://smarthome.haplugin.com/
 ## 具体使用方法可以看B站视频：https://www.bilibili.com/video/BV1Dp421C7cm/?spm_id_from=333.999.0.0
